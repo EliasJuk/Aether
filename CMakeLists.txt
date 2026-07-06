@@ -11,6 +11,7 @@ find_package(glm CONFIG REQUIRED)     # matemática (vetores, matrizes) no estil
 add_executable(
   Aether
   src/main.cpp
+  src/Renderer/Shader.cpp
 )
 
 target_link_libraries(
