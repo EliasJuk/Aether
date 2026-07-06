@@ -23,7 +23,6 @@
 *.dll
 *.so.*
 
-
 # Fortran module files
 *.mod
 *.smod
@@ -40,11 +39,14 @@
 *.app
 
 # Build directories
+# Pasta de build do CMake (gerada automaticamente)
 build/
 Build/
 build-*/
+out/
 
 # CMake generated files
+# Cache e arquivos temporários do CMake
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
@@ -58,7 +60,7 @@ compile_commands.json
 *.bak
 *.swp
 
-# vcpkg
+# vcpkg local ao projeto
 vcpkg_installed/
 
 # debug information files
@@ -67,3 +69,11 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# Arquivos do Visual Studio / CMake Tools
+.vs/
+CMakeUserPresets.json
+
+# Arquivos de sistema do Windows
+Thumbs.db
+desktop.ini
