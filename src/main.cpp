@@ -1,7 +1,6 @@
 // GLAD carrega as funções do OpenGL disponíveis na placa de vídeo.
 // Sem ele não conseguimos utilizar o OpenGL moderno.
 #include <glad/glad.h>
-
 // GLFW é responsável por criar a janela, criar o contexto OpenGL e
 // receber entrada do teclado, mouse e outras informações do sistema.
 #include <GLFW/glfw3.h>
@@ -9,14 +8,45 @@
 // Biblioteca padrão para imprimir mensagens no terminal.
 #include <iostream>
 
-int main(){
+#include "Renderer/Shader.hpp"
+#include "Camera/Camera.hpp"
+#include "Grid/Grid.hpp"
+
+const char* vertexShaderSource = R"(
+#version 410 core
+
+layout (location = 0) in vec3 aPosition;
+
+uniform mat4 uView;
+uniform mat4 uProjection;
+
+void main() {
+    gl_Position = uProjection * uView * vec4(aPosition, 1.0);
+}
+)";
+
+const char* fragmentShaderSource = R"(
+#version 410 core
+
+out vec4 FragColor;
+
+uniform vec3 uColor;
+
+void main() {
+    FragColor = vec4(uColor, 1.0);
+}
+)";
+
+int main() {
+
+
+  if (!glfwInit()) {
   // ------------------------------------------------------------------------
   // Inicializa a biblioteca GLFW.
   //
   // Essa chamada prepara tudo o que o GLFW precisa para funcionar.
   // Se ela falhar, não podemos criar uma janela.
   // ------------------------------------------------------------------------
-  if (!glfwInit()){
     std::cerr << "Erro ao iniciar GLFW\n";
     return -1;
   }
@@ -47,20 +77,18 @@ int main(){
   // contexto compartilhado (nullptr = nenhum)
   // ------------------------------------------------------------------------
   GLFWwindow* window = glfwCreateWindow(
-    1280,
-    720,
-    "Aether",
-    nullptr,
+    1280, 
+    720, 
+    "Aether", 
+    nullptr, 
     nullptr
   );
 
   // Se não conseguiu criar a janela...
-  if (!window){
+  if (!window) {
     std::cerr << "Erro ao criar janela\n";
-
     // Libera todos os recursos do GLFW.
     glfwTerminate();
-
     return -1;
   }
 
@@ -69,6 +97,7 @@ int main(){
   //
   // Esta linha torna a janela recém criada o contexto atual.
   // ------------------------------------------------------------------------
+
   glfwMakeContextCurrent(window);
 
   // ------------------------------------------------------------------------
@@ -87,12 +116,10 @@ int main(){
   // O GLAD procura todas as funções do OpenGL disponíveis
   // na placa de vídeo.
   // ------------------------------------------------------------------------
-  if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)){
+  if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
     std::cerr << "Erro ao carregar GLAD\n";
-
     glfwDestroyWindow(window);
     glfwTerminate();
-
     return -1;
   }
 
@@ -106,13 +133,18 @@ int main(){
   // altura = 720
   // ------------------------------------------------------------------------
   glViewport(0, 0, 1280, 720);
+  glEnable(GL_DEPTH_TEST); // sem isso, objetos mais distantes podem desenhar por cima dos mais próximos
+
+  Shader shader(vertexShaderSource, fragmentShaderSource);
+  Camera camera;
+  Grid grid(20);
 
   // ============================= GAME LOOP ================================
   //
   // Enquanto a janela permanecer aberta, este bloco ficará em execução
   //
   // ========================================================================
-  while (!glfwWindowShouldClose(window)){
+  while (!glfwWindowShouldClose(window)) {    
     // ----------------------------------------------------------------------
     // Atualiza eventos do sistema.
     //
@@ -125,6 +157,11 @@ int main(){
     // --------------------------------------------------------------------
     glfwPollEvents();
 
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+    if (height == 0) height = 1; // evita divisão por zero se a janela for minimizada
+    float aspectRatio = (float)width / (float)height;
+
     // Define a cor utilizada para limpar a tela.
     //
     // RGBA
@@ -133,12 +170,14 @@ int main(){
     // B = azul
     // A = transparência
     glClearColor(0.08f, 0.09f, 0.10f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // Limpa o buffer de cor.
-    //
-    // Isso "apaga" a imagem anterior para que um novo frame possa
-    // ser desenhado.
-    glClear(GL_COLOR_BUFFER_BIT);
+    shader.use();
+    shader.setMat4("uView", camera.getViewMatrix());
+    shader.setMat4("uProjection", camera.getProjectionMatrix(aspectRatio));
+    shader.setVec3("uColor", glm::vec3(0.35f, 0.35f, 0.35f));
+
+    grid.draw();
 
     // --------------------------------------------------------------------
     // Troca o buffer invisível pelo buffer visível.
@@ -151,11 +190,12 @@ int main(){
     glfwSwapBuffers(window);
   }
 
+
   // ========================================================================
   // FINALIZAÇÃO
   // ========================================================================
 
-  // Libera a memória utilizada pela janela.
+  // Libera a memória utilizada pela janela.  
   glfwDestroyWindow(window);
 
   // Finaliza o GLFW.

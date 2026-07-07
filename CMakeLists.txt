@@ -12,6 +12,8 @@ add_executable(
   Aether
   src/main.cpp
   src/Renderer/Shader.cpp
+  src/Camera/Camera.cpp
+  src/Grid/Grid.cpp
 )
 
 target_link_libraries(
