@@ -9,9 +9,10 @@ Camera::Camera()
     , pitchDegrees(35.0f) // ângulo comum em jogos isométricos
     , distance(20.0f)
     , minDistance(6.0f)
-    , maxDistance(50.0f) {
-  updatePosition();
-}
+    , maxDistance(50.0f) 
+    {
+      updatePosition();
+    }
 
 void Camera::setTarget(const glm::vec3& newTarget) {
   target = newTarget;
@@ -47,9 +48,16 @@ void Camera::updatePosition() {
 }
 
 glm::mat4 Camera::getViewMatrix() const {
-  return glm::lookAt(position, target, glm::vec3(0.0f, 1.0f, 0.0f));
+  return glm::lookAt(
+    position,
+    target,
+    glm::vec3(0.0f, 1.0f, 0.0f));
 }
 
 glm::mat4 Camera::getProjectionMatrix(float aspectRatio) const {
-  return glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 1000.0f);
+  return glm::perspective(
+    glm::radians(45.0f), 
+    aspectRatio, 
+    0.1f, 
+    1000.0f);
 }

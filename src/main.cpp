@@ -14,30 +14,39 @@
 #include "Input/Raycast.hpp"
 
 const char* vertexShaderSource = R"(
-#version 410 core
+  #version 410 core
 
-layout (location = 0) in vec3 aPosition;
+  layout (location = 0) in vec3 aPosition;
 
-uniform mat4 uModel;
-uniform mat4 uView;
-uniform mat4 uProjection;
+  uniform mat4 uModel;
+  uniform mat4 uView;
+  uniform mat4 uProjection;
 
-void main() {
+  void main() {
     gl_Position = uProjection * uView * uModel * vec4(aPosition, 1.0);
-}
+  }
 )";
 
 const char* fragmentShaderSource = R"(
-#version 410 core
+  #version 410 core
 
-out vec4 FragColor;
+  out vec4 FragColor;
 
-uniform vec3 uColor;
+  uniform vec3 uColor;
 
-void main() {
+  void main() {
     FragColor = vec4(uColor, 1.0);
-}
+  }
 )";
+
+
+//ROTATE CAMERA
+void scrollCallback(GLFWwindow* window, double xoffset, double yoffset){
+  Camera* camera = static_cast<Camera*>(glfwGetWindowUserPointer(window));
+    if (camera){
+      camera->zoom((float)yoffset * 2.0f);
+    }
+}
 
 int main() {
   if (!glfwInit()) {
@@ -59,7 +68,6 @@ int main() {
   // da API moderna baseada em shaders.
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-
   // ------------------------------------------------------------------------
   // Cria a janela.
   //
@@ -75,7 +83,8 @@ int main() {
     720,
     "Aether",
     nullptr,
-    nullptr);
+    nullptr
+  );
 
   if (!window) {
     std::cerr << "Erro ao criar janela\n";
@@ -102,6 +111,12 @@ int main() {
   Player player;
   Cube playerCube(1.0f);
 
+  glfwSetWindowUserPointer(window, &camera);
+  glfwSetScrollCallback(window, scrollCallback);
+
+  bool middleMouseDown = false;
+  double lastMouseX = 0.0;
+
   bool leftWasDown = false;
   double previousTime = glfwGetTime();
 
@@ -117,8 +132,27 @@ int main() {
     if (height == 0) height = 1;
     float aspectRatio = (float)width / (float)height;
 
+    // --- Rotação de câmera: arrasta com o botão do meio do mouse ---
+    double mouseX, mouseY;
+    glfwGetCursorPos(window, &mouseX, &mouseY);
+    int middleState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE);
+
+    if (middleState == GLFW_PRESS){
+      if (!middleMouseDown){
+        middleMouseDown = true;
+        lastMouseX = mouseX;
+      }else{
+        double deltaX = mouseX - lastMouseX;
+        camera.rotate((float)deltaX * 0.2f);
+        lastMouseX = mouseX;
+      }
+    }else{
+      middleMouseDown = false;
+    }
+
     // Clique esquerdo: manda o player andar até o ponto clicado no chão.
     int leftState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+
     if (leftState == GLFW_PRESS && !leftWasDown) {
       glm::vec3 groundPoint;
       if (Raycast::screenToGroundPoint(window, camera, width, height, groundPoint)) {
