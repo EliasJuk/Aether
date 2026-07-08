@@ -14,13 +14,17 @@ add_executable(Aether
 
   src/Renderer/Shader.cpp
   src/Renderer/Cube.cpp
+  src/Renderer/Ring.cpp
 
   src/Camera/Camera.cpp
 
   src/Grid/Grid.cpp
 
-  src/Entity/Player.cpp  
+  src/Entity/Player.cpp
+  src/Entity/ClickMarker.cpp
+
   src/Input/Raycast.cpp
+
 )
 
 target_link_libraries(

@@ -12,6 +12,8 @@
 #include "Grid/Grid.hpp"
 #include "Entity/Player.hpp"
 #include "Input/Raycast.hpp"
+#include "Renderer/Ring.hpp"
+#include "Entity/ClickMarker.hpp"
 
 const char* vertexShaderSource = R"(
   #version 410 core
@@ -110,6 +112,8 @@ int main() {
   Grid grid(20);
   Player player;
   Cube playerCube(1.0f);
+  Ring ring(32);
+  ClickMarker clickMarker;
 
   glfwSetWindowUserPointer(window, &camera);
   glfwSetScrollCallback(window, scrollCallback);
@@ -157,11 +161,13 @@ int main() {
       glm::vec3 groundPoint;
       if (Raycast::screenToGroundPoint(window, camera, width, height, groundPoint)) {
         player.setMoveTarget(groundPoint);
+        clickMarker.spawn(groundPoint);
       }
     }
     leftWasDown = (leftState == GLFW_PRESS);
 
     player.update(deltaTime);
+    clickMarker.update(deltaTime);
     camera.setTarget(player.getPosition()); // câmera sempre acompanha o player
 
     glClearColor(0.08f, 0.09f, 0.10f, 1.0f);
@@ -181,6 +187,23 @@ int main() {
     shader.setMat4("uModel", playerModel);
     shader.setVec3("uColor", glm::vec3(0.2f, 0.6f, 1.0f));
     playerCube.draw();
+
+    // Indicador de clique (anel que expande e desaparece).
+    // O fade é feito misturando a cor do anel com a cor de fundo, já que
+    // ainda não estamos usando transparência (blending) de verdade.
+    if (clickMarker.isActive()) {
+      glm::vec3 baseColor(1.0f, 0.85f, 0.2f);
+      glm::vec3 backgroundColor(0.08f, 0.09f, 0.10f);
+      glm::vec3 ringColor = glm::mix(baseColor, backgroundColor, clickMarker.getFade());
+
+      float scale = clickMarker.getScale();
+      glm::mat4 ringModel = glm::translate(glm::mat4(1.0f), clickMarker.getPosition());
+      ringModel = glm::scale(ringModel, glm::vec3(scale, 1.0f, scale));
+
+      shader.setMat4("uModel", ringModel);
+      shader.setVec3("uColor", ringColor);
+      ring.draw();
+    }
 
     glfwSwapBuffers(window);
   }
