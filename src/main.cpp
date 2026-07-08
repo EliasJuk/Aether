@@ -1,23 +1,17 @@
-// GLAD carrega as funções do OpenGL disponíveis na placa de vídeo.
-// Sem ele não conseguimos utilizar o OpenGL moderno.
 #include <glad/glad.h>
-
-// GLFW é responsável por criar a janela, criar o contexto OpenGL e
-// receber entrada do teclado, mouse e outras informações do sistema.
 #include <GLFW/glfw3.h>
 
-// GLM é usado para trabalhar com vetores e matrizes.
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-// Biblioteca padrão para imprimir mensagens no terminal.
 #include <iostream>
 
 #include "Renderer/Shader.hpp"
+#include "Renderer/Cube.hpp"
 #include "Camera/Camera.hpp"
 #include "Grid/Grid.hpp"
 #include "Entity/Player.hpp"
-#include "Renderer/Cube.hpp"
+#include "Input/Raycast.hpp"
 
 const char* vertexShaderSource = R"(
 #version 410 core
@@ -46,14 +40,7 @@ void main() {
 )";
 
 int main() {
-
   if (!glfwInit()) {
-  // ------------------------------------------------------------------------
-  // Inicializa a biblioteca GLFW.
-  //
-  // Essa chamada prepara tudo o que o GLFW precisa para funcionar.
-  // Se ela falhar, não podemos criar uma janela.
-  // ------------------------------------------------------------------------
     std::cerr << "Erro ao iniciar GLFW\n";
     return -1;
   }
@@ -68,10 +55,10 @@ int main() {
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 
   // Utiliza o perfil Core.
-  //
   // O perfil Core remove funções antigas do OpenGL e força o uso
   // da API moderna baseada em shaders.
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
 
   // ------------------------------------------------------------------------
   // Cria a janela.
@@ -88,40 +75,17 @@ int main() {
     720,
     "Aether",
     nullptr,
-    nullptr
-  );
+    nullptr);
 
-  // Se não conseguiu criar a janela...
   if (!window) {
     std::cerr << "Erro ao criar janela\n";
-    // Libera todos os recursos do GLFW.
     glfwTerminate();
     return -1;
   }
 
-  // ------------------------------------------------------------------------
-  // Toda chamada do OpenGL precisa saber em qual janela irá desenhar.
-  //
-  // Esta linha torna a janela recém criada o contexto atual.
-  // ------------------------------------------------------------------------
   glfwMakeContextCurrent(window);
+  glfwSwapInterval(1); // Ativa VSync - sincroniza a taxa de atualização com o monitor.
 
-  // ------------------------------------------------------------------------
-  // Ativa VSync.
-  //
-  // Valor 1:
-  // sincroniza a taxa de atualização do programa com o monitor.
-  //
-  // Isso evita "screen tearing".
-  // ------------------------------------------------------------------------
-  glfwSwapInterval(1);
-
-  // ------------------------------------------------------------------------
-  // Inicializa o GLAD.
-  //
-  // O GLAD procura todas as funções do OpenGL disponíveis
-  // na placa de vídeo.
-  // ------------------------------------------------------------------------
   if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
     std::cerr << "Erro ao carregar GLAD\n";
     glfwDestroyWindow(window);
@@ -129,57 +93,43 @@ int main() {
     return -1;
   }
 
-  // ------------------------------------------------------------------------
-  // Define qual região da janela o OpenGL poderá utilizar para desenhar.
-  //
-  // Neste caso:
-  // x = 0
-  // y = 0
-  // largura = 1280
-  // altura = 720
-  // ------------------------------------------------------------------------
   glViewport(0, 0, 1280, 720);
-
-  // Sem isso, objetos mais distantes podem desenhar por cima dos mais próximos.
   glEnable(GL_DEPTH_TEST);
 
   Shader shader(vertexShaderSource, fragmentShaderSource);
   Camera camera;
   Grid grid(20);
-
   Player player;
   Cube playerCube(1.0f);
 
-  // ============================= GAME LOOP ================================
-  //
-  // Enquanto a janela permanecer aberta, este bloco ficará em execução
-  //
-  // ========================================================================
+  bool leftWasDown = false;
+  double previousTime = glfwGetTime();
+
   while (!glfwWindowShouldClose(window)) {
-    // ----------------------------------------------------------------------
-    // Atualiza eventos do sistema.
-    //
-    // Aqui o GLFW verifica:
-    // - teclado
-    // - mouse
-    // - movimentação da janela
-    // - redimensionamento
-    // - botão fechar
-    // ----------------------------------------------------------------------
-    glfwPollEvents();
+    double currentTime = glfwGetTime();
+    float deltaTime = (float)(currentTime - previousTime);
+    previousTime = currentTime;
+
+    glfwPollEvents(); // Atualiza eventos do sistema.
 
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
-    if (height == 0) height = 1; // evita divisão por zero se a janela for minimizada
+    if (height == 0) height = 1;
     float aspectRatio = (float)width / (float)height;
 
-    // Define a cor utilizada para limpar a tela.
-    //
-    // RGBA
-    // R = vermelho
-    // G = verde
-    // B = azul
-    // A = transparência
+    // Clique esquerdo: manda o player andar até o ponto clicado no chão.
+    int leftState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+    if (leftState == GLFW_PRESS && !leftWasDown) {
+      glm::vec3 groundPoint;
+      if (Raycast::screenToGroundPoint(window, camera, width, height, groundPoint)) {
+        player.setMoveTarget(groundPoint);
+      }
+    }
+    leftWasDown = (leftState == GLFW_PRESS);
+
+    player.update(deltaTime);
+    camera.setTarget(player.getPosition()); // câmera sempre acompanha o player
+
     glClearColor(0.08f, 0.09f, 0.10f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -187,54 +137,22 @@ int main() {
     shader.setMat4("uView", camera.getViewMatrix());
     shader.setMat4("uProjection", camera.getProjectionMatrix(aspectRatio));
 
-    // ----------------------------------------------------------------------
-    // Desenha o grid/chão.
-    //
-    // uModel identidade significa:
-    // - não mover
-    // - não girar
-    // - não escalar
-    // ----------------------------------------------------------------------
-    shader.setMat4("uModel", glm::mat4(1.0f));
+    // Chão
+    shader.setMat4("uModel", glm::mat4(1.0f)); // matriz "identidade": sem mover, sem girar
     shader.setVec3("uColor", glm::vec3(0.35f, 0.35f, 0.35f));
-
     grid.draw();
 
-    // ----------------------------------------------------------------------
-    // Desenha o player.
-    //
-    // Aqui usamos a posição do Player para mover o cubo no mundo.
-    // ----------------------------------------------------------------------
-    glm::mat4 playerModel = glm::translate(
-      glm::mat4(1.0f),
-      player.getPosition()
-    );
-
+    // Player: usa uModel de verdade agora, pra levar o cubo até a posição dele.
+    glm::mat4 playerModel = glm::translate(glm::mat4(1.0f), player.getPosition());
     shader.setMat4("uModel", playerModel);
     shader.setVec3("uColor", glm::vec3(0.2f, 0.6f, 1.0f));
-
     playerCube.draw();
 
-    // --------------------------------------------------------------------
-    // Troca o buffer invisível pelo buffer visível.
-    //
-    // Enquanto desenhamos o próximo frame em segundo plano,
-    // o monitor continua exibindo o frame anterior.
-    //
-    // Essa técnica chama-se Double Buffering.
-    // --------------------------------------------------------------------
     glfwSwapBuffers(window);
   }
 
-  // ========================================================================
-  // FINALIZAÇÃO
-  // ========================================================================
-
-  // Libera a memória utilizada pela janela.
-  glfwDestroyWindow(window);
-
-  // Finaliza o GLFW.
-  glfwTerminate();
+  glfwDestroyWindow(window); // Libera a memória utilizada pela janela.
+  glfwTerminate(); // Finaliza o GLFW.
 
   return 0;
 }

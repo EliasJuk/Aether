@@ -16,6 +16,7 @@ add_executable(
   src/Grid/Grid.cpp
   src/Entity/Player.cpp
   src/Renderer/Cube.cpp
+  src/Input/Raycast.cpp
 )
 
 target_link_libraries(
