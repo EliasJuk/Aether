@@ -14,6 +14,8 @@ add_executable(
   src/Renderer/Shader.cpp
   src/Camera/Camera.cpp
   src/Grid/Grid.cpp
+  src/Entity/Player.cpp
+  src/Renderer/Cube.cpp
 )
 
 target_link_libraries(

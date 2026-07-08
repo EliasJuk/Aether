@@ -1,9 +1,14 @@
 // GLAD carrega as funções do OpenGL disponíveis na placa de vídeo.
 // Sem ele não conseguimos utilizar o OpenGL moderno.
 #include <glad/glad.h>
+
 // GLFW é responsável por criar a janela, criar o contexto OpenGL e
 // receber entrada do teclado, mouse e outras informações do sistema.
 #include <GLFW/glfw3.h>
+
+// GLM é usado para trabalhar com vetores e matrizes.
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 // Biblioteca padrão para imprimir mensagens no terminal.
 #include <iostream>
@@ -11,17 +16,20 @@
 #include "Renderer/Shader.hpp"
 #include "Camera/Camera.hpp"
 #include "Grid/Grid.hpp"
+#include "Entity/Player.hpp"
+#include "Renderer/Cube.hpp"
 
 const char* vertexShaderSource = R"(
 #version 410 core
 
 layout (location = 0) in vec3 aPosition;
 
+uniform mat4 uModel;
 uniform mat4 uView;
 uniform mat4 uProjection;
 
 void main() {
-    gl_Position = uProjection * uView * vec4(aPosition, 1.0);
+    gl_Position = uProjection * uView * uModel * vec4(aPosition, 1.0);
 }
 )";
 
@@ -38,7 +46,6 @@ void main() {
 )";
 
 int main() {
-
 
   if (!glfwInit()) {
   // ------------------------------------------------------------------------
@@ -77,10 +84,10 @@ int main() {
   // contexto compartilhado (nullptr = nenhum)
   // ------------------------------------------------------------------------
   GLFWwindow* window = glfwCreateWindow(
-    1280, 
-    720, 
-    "Aether", 
-    nullptr, 
+    1280,
+    720,
+    "Aether",
+    nullptr,
     nullptr
   );
 
@@ -97,7 +104,6 @@ int main() {
   //
   // Esta linha torna a janela recém criada o contexto atual.
   // ------------------------------------------------------------------------
-
   glfwMakeContextCurrent(window);
 
   // ------------------------------------------------------------------------
@@ -133,18 +139,23 @@ int main() {
   // altura = 720
   // ------------------------------------------------------------------------
   glViewport(0, 0, 1280, 720);
-  glEnable(GL_DEPTH_TEST); // sem isso, objetos mais distantes podem desenhar por cima dos mais próximos
+
+  // Sem isso, objetos mais distantes podem desenhar por cima dos mais próximos.
+  glEnable(GL_DEPTH_TEST);
 
   Shader shader(vertexShaderSource, fragmentShaderSource);
   Camera camera;
   Grid grid(20);
+
+  Player player;
+  Cube playerCube(1.0f);
 
   // ============================= GAME LOOP ================================
   //
   // Enquanto a janela permanecer aberta, este bloco ficará em execução
   //
   // ========================================================================
-  while (!glfwWindowShouldClose(window)) {    
+  while (!glfwWindowShouldClose(window)) {
     // ----------------------------------------------------------------------
     // Atualiza eventos do sistema.
     //
@@ -154,7 +165,7 @@ int main() {
     // - movimentação da janela
     // - redimensionamento
     // - botão fechar
-    // --------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     glfwPollEvents();
 
     int width, height;
@@ -175,9 +186,34 @@ int main() {
     shader.use();
     shader.setMat4("uView", camera.getViewMatrix());
     shader.setMat4("uProjection", camera.getProjectionMatrix(aspectRatio));
+
+    // ----------------------------------------------------------------------
+    // Desenha o grid/chão.
+    //
+    // uModel identidade significa:
+    // - não mover
+    // - não girar
+    // - não escalar
+    // ----------------------------------------------------------------------
+    shader.setMat4("uModel", glm::mat4(1.0f));
     shader.setVec3("uColor", glm::vec3(0.35f, 0.35f, 0.35f));
 
     grid.draw();
+
+    // ----------------------------------------------------------------------
+    // Desenha o player.
+    //
+    // Aqui usamos a posição do Player para mover o cubo no mundo.
+    // ----------------------------------------------------------------------
+    glm::mat4 playerModel = glm::translate(
+      glm::mat4(1.0f),
+      player.getPosition()
+    );
+
+    shader.setMat4("uModel", playerModel);
+    shader.setVec3("uColor", glm::vec3(0.2f, 0.6f, 1.0f));
+
+    playerCube.draw();
 
     // --------------------------------------------------------------------
     // Troca o buffer invisível pelo buffer visível.
@@ -190,12 +226,11 @@ int main() {
     glfwSwapBuffers(window);
   }
 
-
   // ========================================================================
   // FINALIZAÇÃO
   // ========================================================================
 
-  // Libera a memória utilizada pela janela.  
+  // Libera a memória utilizada pela janela.
   glfwDestroyWindow(window);
 
   // Finaliza o GLFW.
