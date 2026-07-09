@@ -15,6 +15,8 @@
 #include "Renderer/Ring.hpp"
 #include "Entity/ClickMarker.hpp"
 
+#include "Scripts/LuaEngine.hpp"
+
 const char* vertexShaderSource = R"(
   #version 410 core
 
@@ -115,13 +117,20 @@ int main() {
   Ring ring(32);
   ClickMarker clickMarker;
 
+  // Lua Engine
+  // PROJECT_ROOT_DIR vem do CMake (target_compile_definitions) e garante
+  // que o caminho funcione não importa de onde o .exe seja executado.
+  LuaEngine luaEngine;
+  luaEngine.loadScript(std::string(PROJECT_ROOT_DIR) + "/src/abilities/fireball.lua");
+
   glfwSetWindowUserPointer(window, &camera);
   glfwSetScrollCallback(window, scrollCallback);
 
   bool middleMouseDown = false;
   double lastMouseX = 0.0;
 
-  bool leftWasDown = false;
+  bool leftWasDown = false;               //Left
+  bool rightWasDown = false;              //Right
   double previousTime = glfwGetTime();
 
   while (!glfwWindowShouldClose(window)) {
@@ -154,6 +163,17 @@ int main() {
       middleMouseDown = false;
     }
 
+    //================================================================================
+    // Clique direito: conjura a fireball, chamando on_cast() no Lua.
+    int rightState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT);
+    if (rightState == GLFW_PRESS && !rightWasDown) {
+      glm::vec3 groundPoint;
+      if (Raycast::screenToGroundPoint(window, camera, width, height, groundPoint)) {
+        luaEngine.castFireball(player.getPosition(), groundPoint);
+      }
+    }
+    rightWasDown = (rightState == GLFW_PRESS);
+    //================================================================================
     // Clique esquerdo: manda o player andar até o ponto clicado no chão.
     int leftState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
 
@@ -165,6 +185,7 @@ int main() {
       }
     }
     leftWasDown = (leftState == GLFW_PRESS);
+    //================================================================================
 
     player.update(deltaTime);
     clickMarker.update(deltaTime);
